@@ -111,15 +111,19 @@ try:
     df = pd.DataFrame(records)
 
     if not df.empty:
-        # แปลงคอลัมน์ Date เป็น datetime เพื่อใช้ทำสรุปรายเดือน
-        df['Date'] = pd.to_datetime(df['Date'])
+         # 1. สร้างตัวแปรวันที่ชั่วคราวเพื่อนำไปใช้ทำสรุปรายเดือน
+        temp_date = pd.to_datetime(df['Date'], errors='coerce')
+
+        # 2. แปลงตารางหลักคอลัมน์ Date ให้แสดงผลเฉพาะ วันที่
+        # โดยการบังคับแปลงเป็นสตริงข้อความแบบกำหนดรูปแบบ
+        df['Date'] = temp_date.dt.strftime('%Y-%m-%d')
         
         # --- 1. Monthly Summary Dashboard ---
         st.divider()
         st.subheader("📅 Monthly Summary")
         
         # สร้างตัวเลือกเดือน
-        df['Month'] = df['Date'].dt.strftime('%Y-%m')
+        df['Month'] = temp_date.dt.strftime('%Y-%m')
         available_months = sorted(df['Month'].unique(), reverse=True)
         selected_month = st.selectbox("Select Month to View:", available_months)
         
@@ -168,10 +172,6 @@ try:
 
         st.divider()
         st.subheader("📝 All Transactions")
-
-        display_df = df.copy()
-        display_df['Date'] = display_df['Date'].dt.strftime('%Y-%m-%d')
-        
         st.dataframe(df.drop(columns=['Month']), use_container_width=True)
 
 
