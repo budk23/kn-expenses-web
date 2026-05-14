@@ -3,26 +3,38 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import pandas as pd
 from datetime import datetime
+import base64
+import json
 
 # 1. Page Configuration
 st.set_page_config(page_title="Total Expenses", layout="wide")
 
-# --- ส่วนของ Login (ใช้ Google Login ของ Streamlit Cloud) ---
-# หมายเหตุ: ต้องไปตั้งค่าที่หน้า App ใน Streamlit Cloud ด้วยนะครับ
+# --- Safe Authentication Section (Fixed for Cloud Token) ---
 def get_current_user():
-    # 1. ลองเช็คจาก Streamlit Context (สำหรับ Cloud เวอร์ชันใหม่)
-    import os
+    # 1. เช็ค Localhost (ยอมให้ผ่านเลยเพื่อเทสในเครื่อง)
     if "localhost" in st.context.headers.get("host", ""):
-        return "bkorn2303@gmail.com" # ใส่เมลจริงของคุณเกดตรงนี้
+        return "bkorn2303@gmail.com" 
     
-    # 2. ถ้าอยู่บน Cloud ให้เช็คตามปกติ
+    # 2. ลองเช็คจาก st.user (วิธีมาตรฐานของ Streamlit รุ่นใหม่)
     if hasattr(st, "user") and st.user.get("is_logged_in"):
         return st.user.get("email")
     
-    user_email = st.context.headers.get("X-Streamlit-User")
-    return user_email
+    # 3. ดึงจาก Header และจัดการ Token (แก้ปัญหาตัวอักษรยาวๆ บน Cloud)
+    user_data = st.context.headers.get("X-Streamlit-User")
+    if user_data:
+        try:
+            # ถ้าข้อมูลที่ได้มาเป็นรหัสลับ (มีจุด . แบ่งส่วน) ให้แกะรหัสออกมา
+            if "." in user_data:
+                payload = user_data.split(".")[1]
+                payload += "=" * ((4 - len(payload) % 4) % 4)
+                decoded = base64.b64decode(payload).decode("utf-8")
+                return json.loads(decoded).get("email")
+            return user_data
+        except:
+            return user_data
+    return None
 
-# รายชื่อผู้มีสิทธิ์ (อย่าลืมใส่เมลตัวเองด้วยนะครับ)
+# รายชื่อผู้มีสิทธิ์
 authorized_users = ["bkorn2303@gmail.com", "noeynim.nnim@gmail.com"]
 
 current_user = get_current_user()
@@ -32,8 +44,11 @@ if not current_user:
     st.stop()
 
 if current_user not in authorized_users:
+    # คราวนี้ตรงนี้จะโชว์เป็นอีเมลจริงๆ ไม่ใช่รหัสยาวๆ แล้วครับ
     st.error(f"Access Denied: {current_user} is not authorized.")
     st.stop()
+
+st.success(f"Welcome, {current_user}")
 
 def connect_to_sheet():
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
