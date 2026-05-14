@@ -168,6 +168,10 @@ try:
 
         st.divider()
         st.subheader("📝 All Transactions")
+
+        display_df = df.copy()
+        display_df['Date'] = display_df['Date'].dt.strftime('%Y-%m-%d')
+        
         st.dataframe(df.drop(columns=['Month']), use_container_width=True)
 
 
