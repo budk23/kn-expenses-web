@@ -88,6 +88,47 @@ try:
 
         st.divider()
         st.dataframe(df, use_container_width=True)
+
+        # --- 3. Manage Section (Edit/Delete) ---
+        st.divider()
+        with st.expander("🛠️ Manage Transactions (Edit/Delete)"):
+            # ให้เลือกแถวที่จะจัดการ (ใช้ index ของ dataframe)
+            row_to_edit = st.selectbox("Select row to manage:", options=df.index, format_func=lambda x: f"Row {x+1}: {df.iloc[x]['Description']} ({df.iloc[x]['Amount']} ฿)")
+            
+            # ดึงข้อมูลแถวที่เลือกมาใส่ในตัวแปร
+            current_row_data = df.iloc[row_to_edit]
+            
+            col_ed1, col_ed2, col_ed3, col_ed4 = st.columns(4)
+            new_desc = col_ed1.text_input("Edit Description", value=current_row_data['Description'])
+            new_amt = col_ed2.number_input("Edit Amount", value=float(current_row_data['Amount']), step=1.0)
+            new_payer = col_ed3.selectbox("Edit Payer", ["Ked", "Noey"], index=0 if current_row_data['Payer'] == "Ked" else 1)
+            new_status = col_ed4.selectbox("Edit Status", ["unpaid", "paid"], index=0 if current_row_data['Status'] == "unpaid" else 1)
+
+            btn_col1, btn_col2, _ = st.columns([1, 1, 2])
+            
+            # ปุ่มแก้ไข
+            if btn_col1.button("✅ Update Row", use_container_width=True):
+                # แถวใน Google Sheets จะเริ่มที่ 2 (เพราะแถว 1 คือ Header)
+                gsheet_row_idx = int(row_to_edit) + 2
+                updated_values = [
+                    current_row_data['Date'], 
+                    new_desc, 
+                    new_amt, 
+                    new_payer, 
+                    new_amt/2, 
+                    new_status
+                ]
+                # อัปเดตทั้งแถว
+                sheet.update(f"A{gsheet_row_idx}:F{gsheet_row_idx}", [updated_values])
+                st.success(f"Updated row {row_to_edit + 1} successfully!")
+                st.rerun()
+
+            # ปุ่มลบ
+            if btn_col2.button("🗑️ Delete Row", type="primary", use_container_width=True):
+                gsheet_row_idx = int(row_to_edit) + 2
+                sheet.delete_rows(gsheet_row_idx)
+                st.success(f"Deleted row {row_to_edit + 1} successfully!")
+                st.rerun()
     else:
         st.info("No records found.")
 
