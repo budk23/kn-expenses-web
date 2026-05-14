@@ -89,41 +89,48 @@ try:
         st.divider()
         st.dataframe(df, use_container_width=True)
 
-        # --- 3. Manage Section (Edit/Delete) ---
+# --- 3. Manage Section (Edit/Delete) ---
         st.divider()
         with st.expander("🛠️ Manage Transactions (Edit/Delete)"):
-            # ให้เลือกแถวที่จะจัดการ (ใช้ index ของ dataframe)
-            row_to_edit = st.selectbox("Select row to manage:", options=df.index, format_func=lambda x: f"Row {x+1}: {df.iloc[x]['Description']} ({df.iloc[x]['Amount']} ฿)")
+            # ดึงรายชื่อจากคอลัมน์ 'Item' และ 'Total' ตามในภาพ image_ccc497.png
+            row_options = []
+            for i in range(len(df)):
+                item = df.iloc[i].get('Item', 'Unknown')
+                total = df.iloc[i].get('Total', 0)
+                row_options.append(f"Row {i+1}: {item} ({total} ฿)")
+
+            row_to_edit = st.selectbox("Select row to manage:", options=df.index, format_func=lambda x: row_options[x])
             
-            # ดึงข้อมูลแถวที่เลือกมาใส่ในตัวแปร
             current_row_data = df.iloc[row_to_edit]
             
             col_ed1, col_ed2, col_ed3, col_ed4 = st.columns(4)
-            new_desc = col_ed1.text_input("Edit Description", value=current_row_data['Description'])
-            new_amt = col_ed2.number_input("Edit Amount", value=float(current_row_data['Amount']), step=1.0)
-            new_payer = col_ed3.selectbox("Edit Payer", ["Ked", "Noey"], index=0 if current_row_data['Payer'] == "Ked" else 1)
-            new_status = col_ed4.selectbox("Edit Status", ["unpaid", "paid"], index=0 if current_row_data['Status'] == "unpaid" else 1)
+            
+            # แก้ไขชื่อ Key ให้ตรงกับ Sheets เป๊ะๆ
+            new_item = col_ed1.text_input("Edit Item", value=str(current_row_data.get('Item', '')))
+            new_total = col_ed2.number_input("Edit Total", value=float(current_row_data.get('Total', 0)), step=1.0)
+            new_payer = col_ed3.selectbox("Edit Payer", ["Ked", "Noey"], 
+                                         index=0 if current_row_data.get('Payer') == "Ked" else 1)
+            new_status = col_ed4.selectbox("Edit Status", ["unpaid", "paid"], 
+                                          index=0 if current_row_data.get('Status') == "unpaid" else 1)
 
             btn_col1, btn_col2, _ = st.columns([1, 1, 2])
             
-            # ปุ่มแก้ไข
             if btn_col1.button("✅ Update Row", use_container_width=True):
-                # แถวใน Google Sheets จะเริ่มที่ 2 (เพราะแถว 1 คือ Header)
                 gsheet_row_idx = int(row_to_edit) + 2
+                # เรียงข้อมูลให้ตรงตามลำดับคอลัมน์ใน image_ccc497.png
+                # Date(A), Item(B), Total(C), Payer(D), Split_Amount(E), Status(F)
                 updated_values = [
-                    current_row_data['Date'], 
-                    new_desc, 
-                    new_amt, 
+                    current_row_data.get('Date', ''), 
+                    new_item, 
+                    new_total, 
                     new_payer, 
-                    new_amt/2, 
+                    new_total/2, 
                     new_status
                 ]
-                # อัปเดตทั้งแถว
                 sheet.update(f"A{gsheet_row_idx}:F{gsheet_row_idx}", [updated_values])
                 st.success(f"Updated row {row_to_edit + 1} successfully!")
                 st.rerun()
 
-            # ปุ่มลบ
             if btn_col2.button("🗑️ Delete Row", type="primary", use_container_width=True):
                 gsheet_row_idx = int(row_to_edit) + 2
                 sheet.delete_rows(gsheet_row_idx)
