@@ -3,60 +3,57 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import pandas as pd
 from datetime import datetime
-import base64
-import json
 
 # 1. Page Configuration
 st.set_page_config(page_title="Total Expenses", layout="wide")
 
-def get_current_user():
-    # 1. เช็ก Localhost (ยอมให้ผ่านเลยเพื่อเทสในเครื่อง)
-    if "localhost" in st.context.headers.get("host", ""):
-        return "bkorn2303@gmail.com" 
+# --- สร้างตัวแปรเริ่มต้นป้องกัน KeyError (Initialization) ---
+if "password_correct" not in st.session_state:
+    st.session_state["password_correct"] = False
+if "current_user" not in st.session_state:
+    st.session_state["current_user"] = None
+
+# 2. ฟังก์ชันตรวจสอบรหัสผ่าน
+def check_password():
+    """ส่งกลับค่า True ถ้าผู้ใช้กรอกรหัสผ่านถูกต้อง"""
     
-    # 2. เช็คจาก experimental_user เพื่อความปลอดภัยและเข้ากันได้กับ Public App บน Cloud
-    try:
-        if st.experimental_user.get("is_logged_in"):
-            return st.experimental_user.get("email")
-    except Exception:
-        pass
+    def password_entered():
+        # ดึงค่าตรงๆ จากตัวแปรอินพุตปัจจุบันบนหน้าจอ
+        input_user = st.session_state.get("input_username", "")
+        input_pass = st.session_state.get("input_password", "")
+        
+        # ตรวจสอบการเข้าคู่กับฐานข้อมูลความลับใน secrets
+        if input_user in st.secrets["passwords"] and input_pass == st.secrets["passwords"][input_user]:
+            st.session_state["password_correct"] = True
+            st.session_state["current_user"] = input_user  # เก็บชื่อคนที่ล็อกอินไว้ใช้งานต่อ
+        else:
+            st.session_state["password_correct"] = False
+
+    # ถ้าเคยผ่านการล็อกอินสำเร็จแล้ว ให้ข้ามหน้าจอไปได้เลย
+    if st.session_state["password_correct"]:
+        return True
+
+    st.title("Please login to continue")
     
-    # 3. ดึงจาก Header และจัดการแกะรหัสข้อความ
-    user_data = st.context.headers.get("X-Streamlit-User")
-    if user_data:
-        try:
-            # ล้างช่องว่างหัวท้ายข้อความ
-            cleaned_data = user_data.strip()
+    with st.container():
+        # เปลี่ยนชื่อ key ของอินพุตเพื่อไม่ให้ตีกับระบบหลังบ้าน
+        st.text_input("Username", key="input_username")
+        st.text_input("Password", type="password", key="input_password")
+        st.button("Log In", on_click=password_entered)
+        
+        if not st.session_state["password_correct"] and st.session_state["current_user"] is not None:
+            st.error("❌ Incorrect Username or Password")
             
-            # เติมเครื่องหมาย = ป้องกันปัญหา Padding ของ Base64
-            cleaned_data += "=" * ((4 - len(cleaned_data) % 4) % 4)
-            
-            # ถอดรหัสข้อความ Base64
-            decoded = base64.b64decode(cleaned_data).decode("utf-8")
-            
-            # พยายามแปลงข้อมูลเป็น JSON เพื่อดึง Email ออกมา
-            return json.loads(decoded).get("email")
-        except Exception:
-            # ถ้าไม่ใช่ Base64/JSON ให้ส่งก้อนข้อความดิบกลับไป
-            return user_data
-            
-    return None
+    return False
 
-# รายชื่อผู้มีสิทธิ์
-authorized_users = ["bkorn2303@gmail.com", "noeynim.nnim@gmail.com"]
-
-current_user = get_current_user()
-
-# หากรันเป็น Public App แล้วไม่ได้ล็อกอินผ่านหลังบ้าน Streamlit ค่าจะกลับมาเป็น None
-if not current_user:
-    st.info("Please log in to Streamlit Cloud to access this app.")
-    st.markdown("💡 *หากยังไม่เห็นข้อมูล ให้สังเกตปุ่ม **Sign in** หรือ **เปิดเมนูด้านขวาบนของหน้าจอ** เพื่อเข้าสู่ระบบของ Streamlit*")
+# หากยังล็อกอินไม่ผ่าน ให้หยุดการทำงานทันที (คนนอกจะมองไม่เห็นข้อมูลใดๆ)
+if not check_password():
     st.stop()
 
-if current_user not in authorized_users:
-    st.error(f"Access Denied: {current_user} is not authorized.")
-    st.stop()
-
+# -------------------------------------------------------------
+# 3. โค้ดหลังจากล็อกอินผ่านแล้ว (ทำงานเมื่อผ่านระบบรหัสข้างบน)
+# -------------------------------------------------------------
+current_user = st.session_state["current_user"]
 st.success(f"Welcome, {current_user}")
 
 def connect_to_sheet():
