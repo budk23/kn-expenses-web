@@ -28,7 +28,7 @@ def get_current_user():
             # เติมเครื่องหมาย = ป้องกันปัญหา Padding ของ Base64
             cleaned_data += "=" * ((4 - len(cleaned_data) % 4) % 4)
             
-            # ถอดรหัสข้อความ Base64
+            # ถอดรหัสข้อความ Base64 โดยตรง (ตัดเงื่อนไขเช็กเครื่องหมายจุดออก)
             decoded = base64.b64decode(cleaned_data).decode("utf-8")
             
             # พยายามแปลงข้อมูลเป็น JSON เพื่อดึง Email ออกมา
