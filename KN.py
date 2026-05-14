@@ -7,6 +7,37 @@ from datetime import datetime
 # 1. Page Configuration
 st.set_page_config(page_title="Total Expenses", layout="wide")
 
+# --- ส่วนของ Login (ใช้ Google Login ของ Streamlit Cloud) ---
+# หมายเหตุ: ต้องไปตั้งค่าที่หน้า App ใน Streamlit Cloud ด้วยนะครับ
+def get_current_user():
+    # 1. ลองเช็คจาก Streamlit Context (สำหรับ Cloud เวอร์ชันใหม่)
+    import os
+    if hasattr(st, "user") and st.user.get("is_logged_in"):
+        return st.user.get("email")
+    
+    # 2. ลองเช็คจาก Header (สำหรับแอป Private บน Cloud)
+    user_email = st.context.headers.get("X-Streamlit-User")
+    if user_email:
+        return user_email
+        
+    return None
+
+# รายชื่อผู้มีสิทธิ์ (อย่าลืมใส่เมลตัวเองด้วยนะครับ)
+authorized_users = ["noeynim.nnim@gmail.com"]
+
+current_user = get_current_user()
+
+if not current_user:
+    st.info("Please log in to Streamlit Cloud to access this app.")
+    st.stop()
+
+if current_user not in authorized_users:
+    st.error(f"Access Denied: {current_user} is not authorized.")
+    st.stop()
+
+# ถ้าผ่านเงื่อนไขมาถึงตรงนี้ได้ แปลว่า Login สำเร็จและมีสิทธิ์ครับ
+st.success(f"Welcome, {current_user}")
+
 def connect_to_sheet():
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     
@@ -20,21 +51,6 @@ def connect_to_sheet():
     creds_info["auth_uri"] = "https://accounts.google.com/o/oauth2/auth"
     creds_info["token_uri"] = "https://oauth2.googleapis.com/token"
     creds_info["auth_provider_x509_cert_url"] = "https://www.googleapis.com/oauth2/v1/certs"
-
-
-    # # Construct credentials using Streamlit Secrets
-    # creds_info = {
-    #     "type": "service_account",
-    #     "project_id": st.secrets["project_id"],
-    #     "private_key_id": st.secrets["private_key_id"],
-    #     "private_key": st.secrets["private_key"],
-    #     "client_email": st.secrets["client_email"],
-    #     "client_id": st.secrets["client_id"],
-    #     "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-    #     "token_uri": "https://oauth2.googleapis.com/token",
-    #     "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-    #     "client_x509_cert_url": st.secrets["client_x509_cert_url"]
-    # }
     
     creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_info, scope)
     client = gspread.authorize(creds)
@@ -43,6 +59,10 @@ def connect_to_sheet():
 
 try:
     sheet = connect_to_sheet()
+
+    # Welcome message for user
+    st.success(f"Welcome, {user.email}!")
+
     st.title("💸 Total Expenses")
 
     # Add Transaction
