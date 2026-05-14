@@ -12,18 +12,18 @@ st.set_page_config(page_title="Total Expenses", layout="wide")
 def get_current_user():
     # 1. ลองเช็คจาก Streamlit Context (สำหรับ Cloud เวอร์ชันใหม่)
     import os
+    if "localhost" in st.context.headers.get("host", ""):
+        return "bkorn2303@gmail.com" # ใส่เมลจริงของคุณเกดตรงนี้
+    
+    # 2. ถ้าอยู่บน Cloud ให้เช็คตามปกติ
     if hasattr(st, "user") and st.user.get("is_logged_in"):
         return st.user.get("email")
     
-    # 2. ลองเช็คจาก Header (สำหรับแอป Private บน Cloud)
     user_email = st.context.headers.get("X-Streamlit-User")
-    if user_email:
-        return user_email
-        
-    return None
+    return user_email
 
 # รายชื่อผู้มีสิทธิ์ (อย่าลืมใส่เมลตัวเองด้วยนะครับ)
-authorized_users = ["noeynim.nnim@gmail.com"]
+authorized_users = ["bkorn2303@gmail.com", "noeynim.nnim@gmail.com"]
 
 current_user = get_current_user()
 
@@ -34,9 +34,6 @@ if not current_user:
 if current_user not in authorized_users:
     st.error(f"Access Denied: {current_user} is not authorized.")
     st.stop()
-
-# ถ้าผ่านเงื่อนไขมาถึงตรงนี้ได้ แปลว่า Login สำเร็จและมีสิทธิ์ครับ
-st.success(f"Welcome, {current_user}")
 
 def connect_to_sheet():
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
@@ -61,7 +58,7 @@ try:
     sheet = connect_to_sheet()
 
     # Welcome message for user
-    st.success(f"Welcome, {user.email}!")
+    st.success(f"Welcome, {current_user}!")
 
     st.title("💸 Total Expenses")
 
