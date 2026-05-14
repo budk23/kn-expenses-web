@@ -48,9 +48,16 @@ if not current_user:
     st.info("Please log in to Streamlit Cloud to access this app.")
     st.stop()
 
+# เพิ่มปุ่ม Login ตรงนี้ครับ
+if st.button("Log in with Google"):
+    st.login() 
+st.stop()
+
 if current_user not in authorized_users:
     # คราวนี้ตรงนี้จะโชว์เป็นอีเมลจริงๆ ไม่ใช่รหัสยาวๆ แล้วครับ
     st.error(f"Access Denied: {current_user} is not authorized.")
+    if st.button("Log out"):
+        st.logout()
     st.stop()
 
 st.success(f"Welcome, {current_user}")
