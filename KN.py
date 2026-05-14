@@ -9,29 +9,34 @@ import json
 # 1. Page Configuration
 st.set_page_config(page_title="Total Expenses", layout="wide")
 
-# --- Safe Authentication Section (Fixed for Cloud Token) ---
 def get_current_user():
-    # 1. เช็ค Localhost (ยอมให้ผ่านเลยเพื่อเทสในเครื่อง)
+    # 1. เช็ก Localhost (ยอมให้ผ่านเลยเพื่อเทสในเครื่อง)
     if "localhost" in st.context.headers.get("host", ""):
         return "bkorn2303@gmail.com" 
     
-    # 2. ลองเช็คจาก st.user (วิธีมาตรฐานของ Streamlit รุ่นใหม่)
+    # 2. ลองเช็คจาก st.user (ฟีเจอร์มาตรฐานของ Streamlit v1.4x+)
     if hasattr(st, "user") and st.user.get("is_logged_in"):
         return st.user.get("email")
     
-    # 3. ดึงจาก Header และจัดการ Token (แก้ปัญหาตัวอักษรยาวๆ บน Cloud)
+    # 3. ดึงจาก Header และจัดการแกะรหัสข้อความ
     user_data = st.context.headers.get("X-Streamlit-User")
     if user_data:
         try:
-            # ถ้าข้อมูลที่ได้มาเป็นรหัสลับ (มีจุด . แบ่งส่วน) ให้แกะรหัสออกมา
-            if "." in user_data:
-                payload = user_data.split(".")[1]
-                payload += "=" * ((4 - len(payload) % 4) % 4)
-                decoded = base64.b64decode(payload).decode("utf-8")
-                return json.loads(decoded).get("email")
+            # ล้างช่องว่างหัวท้ายข้อความ
+            cleaned_data = user_data.strip()
+            
+            # เติมเครื่องหมาย = ป้องกันปัญหา Padding ของ Base64
+            cleaned_data += "=" * ((4 - len(cleaned_data) % 4) % 4)
+            
+            # ถอดรหัสข้อความ Base64
+            decoded = base64.b64decode(cleaned_data).decode("utf-8")
+            
+            # พยายามแปลงข้อมูลเป็น JSON เพื่อดึง Email ออกมา
+            return json.loads(decoded).get("email")
+        except Exception:
+            # ถ้าไม่ใช่ Base64/JSON ให้ส่งก้อนข้อความดิบกลับไป (เผื่อเป็นกรณีส่งค่าเมลดั้งเดิมมา)
             return user_data
-        except:
-            return user_data
+            
     return None
 
 # รายชื่อผู้มีสิทธิ์
@@ -71,9 +76,6 @@ def connect_to_sheet():
 
 try:
     sheet = connect_to_sheet()
-
-    # Welcome message for user
-    st.success(f"Welcome, {current_user}!")
 
     st.title("💸 Total Expenses")
 
