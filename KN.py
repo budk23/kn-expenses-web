@@ -87,12 +87,20 @@ try:
             item_name = col1.text_input("Description")
             total_val = col2.number_input("Amount (THB)", min_value=0.0, step=1.0)
             payer_name = col3.selectbox("Who paid?", ["Ked", "Noey"])
+
+            payment_type = st.radio("Payment Type:", ["Split 50/50", "Full Amount (Payer gets back 100%)"], horizontal=True)
             
             submit = st.form_submit_button("Save to Sheets")
             
             if submit and item_name:
                 date_str = datetime.now().strftime("%Y-%m-%d")
-                split_val = total_val / 2
+
+                # คำนวณ split_val ตามประเภทที่เลือก
+                if payment_type == "Split 50/50":
+                    split_val = total_val / 2
+                else:
+                    split_val = total_val
+
                 new_data = [date_str, item_name, total_val, payer_name, split_val, "unpaid"]
                 sheet.append_row(new_data)
                 st.success(f"Successfully added: {item_name}")
@@ -187,10 +195,26 @@ try:
             new_status = col_ed4.selectbox("Edit Status", ["unpaid", "paid"], 
                                           index=0 if current_row_data.get('Status') == "unpaid" else 1)
 
+            is_already_full = (current_row_data.get('Split_Amount') == current_row_data.get('Total'))
+    
+            edit_payment_type = st.radio(
+                "Edit Payment Type:", 
+                ["Split 50/50", "Full Amount"], 
+                index=1 if is_already_full else 0,
+                horizontal=True,
+                key=f"edit_type_{row_to_edit}" # ใส่ key กัน streamlit สับสนแถว
+            )
+            
             btn_col1, btn_col2, _ = st.columns([1, 1, 2])
             
             if btn_col1.button("✅ Update Row", use_container_width=True):
                 gsheet_row_idx = int(row_to_edit) + 2
+
+                if edit_payment_type == "Full Amount":
+                    new_split_val = new_total  # จ่ายเต็มยอด
+                else:
+                    new_split_val = new_total / 2  # หารสองปกติ
+
                 # เรียงข้อมูลให้ตรงตามลำดับคอลัมน์ใน image_ccc497.png
                 # Date(A), Item(B), Total(C), Payer(D), Split_Amount(E), Status(F)
                 raw_date = current_row_data.get('Date', '')
@@ -203,7 +227,7 @@ try:
                     new_item, 
                     new_total, 
                     new_payer, 
-                    new_total/2, 
+                    new_total/2 if edit_payment_type == "Split 50/50" else new_total, 
                     new_status
                 ]
                 sheet.update(f"A{gsheet_row_idx}:F{gsheet_row_idx}", [updated_values])
