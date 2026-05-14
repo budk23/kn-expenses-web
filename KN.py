@@ -63,17 +63,41 @@ try:
                 st.success(f"Successfully added: {item_name}")
                 st.rerun()
 
-    # Dashboard
+    # --- ดึงข้อมูลมาแสดงผล ---
     records = sheet.get_all_records()
     df = pd.DataFrame(records)
 
     if not df.empty:
+        # แปลงคอลัมน์ Date เป็น datetime เพื่อใช้ทำสรุปรายเดือน
+        df['Date'] = pd.to_datetime(df['Date'])
+        
+        # --- 1. Monthly Summary Dashboard ---
+        st.divider()
+        st.subheader("📅 Monthly Summary")
+        
+        # สร้างตัวเลือกเดือน
+        df['Month'] = df['Date'].dt.strftime('%Y-%m')
+        available_months = sorted(df['Month'].unique(), reverse=True)
+        selected_month = st.selectbox("Select Month to View:", available_months)
+        
+        # กรองข้อมูลตามเดือนที่เลือก
+        monthly_df = df[df['Month'] == selected_month]
+        
+        col_m1, col_m2 = st.columns(2)
+        m_ked = monthly_df[monthly_df['Payer'] == 'Ked']['Total'].sum()
+        m_noey = monthly_df[monthly_df['Payer'] == 'Noey']['Total'].sum()
+        
+        col_m1.metric(f"Ked's Total ({selected_month})", f"{m_ked:,.2f} ฿")
+        col_m2.metric(f"Noey's Total ({selected_month})", f"{m_noey:,.2f} ฿")
+
+        # --- 2. Overall Unpaid & Settled Up All ---
+        st.divider()
+        st.subheader("💰 Unpaid Balance")
+        
         unpaid_df = df[df['Status'] == 'unpaid']
         ked_share = unpaid_df[unpaid_df['Payer'] == 'Ked']['Split_Amount'].sum()
         noey_share = unpaid_df[unpaid_df['Payer'] == 'Noey']['Split_Amount'].sum()
 
-        st.divider()
-        st.subheader("📊 Summary")
         m1, m2, m3 = st.columns(3)
         m1.metric("Ked's Paid (Share)", f"{ked_share:,.2f} ฿")
         m2.metric("Noey's Paid (Share)", f"{noey_share:,.2f} ฿")
@@ -86,10 +110,25 @@ try:
         else:
             m3.success("All settled up!")
 
-        st.divider()
-        st.dataframe(df, use_container_width=True)
+        # --- ปุ่ม Settled Up All ---
+        if not unpaid_df.empty:
+            if st.button("✅ Mark All as Settled (Paid)", use_container_width=True, type="primary"):
+                # หาตำแหน่งแถวที่เป็น unpaid ทั้งหมดใน Google Sheets
+                # (df.index เริ่มที่ 0, Header อยู่แถว 1 ดังนั้นต้อง +2)
+                for index in unpaid_df.index:
+                    gsheet_row_idx = int(index) + 2
+                    # คอลัมน์ F คือ Status (ลำดับที่ 6)
+                    sheet.update_cell(gsheet_row_idx, 6, "paid")
+                
+                st.success("All transactions marked as paid!")
+                st.rerun()
 
-# --- 3. Manage Section (Edit/Delete) ---
+        st.divider()
+        st.subheader("📝 All Transactions")
+        st.dataframe(df.drop(columns=['Month']), use_container_width=True)
+
+
+    # --- 3. Manage Section (Edit/Delete) ---
         st.divider()
         with st.expander("🛠️ Manage Transactions (Edit/Delete)"):
             # ดึงรายชื่อจากคอลัมน์ 'Item' และ 'Total' ตามในภาพ image_ccc497.png
@@ -119,8 +158,13 @@ try:
                 gsheet_row_idx = int(row_to_edit) + 2
                 # เรียงข้อมูลให้ตรงตามลำดับคอลัมน์ใน image_ccc497.png
                 # Date(A), Item(B), Total(C), Payer(D), Split_Amount(E), Status(F)
+                raw_date = current_row_data.get('Date', '')
+                if hasattr(raw_date, 'strftime'):
+                    clean_date = raw_date.strftime('%Y-%m-%d')
+                else:
+                    clean_date = str(raw_date)
                 updated_values = [
-                    current_row_data.get('Date', ''), 
+                    clean_date, 
                     new_item, 
                     new_total, 
                     new_payer, 
