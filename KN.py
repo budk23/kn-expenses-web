@@ -14,42 +14,36 @@ def get_current_user():
     if "localhost" in st.context.headers.get("host", ""):
         return "bkorn2303@gmail.com" 
     
-    # 2. ลองเช็คจาก st.user (ฟีเจอร์มาตรฐานของ Streamlit v1.4x+)
+    # 2. เช็คจาก st.user (วิธีหลักสำหรับ Public App)
     if hasattr(st, "user") and st.user.get("is_logged_in"):
         return st.user.get("email")
     
-    # 3. ดึงจาก Header และจัดการแกะรหัสข้อความ
+    # 3. ดึงจาก Header และจัดการแกะรหัสข้อความ (กรณีรันผ่านหลังบ้าน)
     user_data = st.context.headers.get("X-Streamlit-User")
     if user_data:
         try:
-            # ล้างช่องว่างหัวท้ายข้อความ
             cleaned_data = user_data.strip()
-            
-            # เติมเครื่องหมาย = ป้องกันปัญหา Padding ของ Base64
             cleaned_data += "=" * ((4 - len(cleaned_data) % 4) % 4)
-            
-            # ถอดรหัสข้อความ Base64 โดยตรง (ตัดเงื่อนไขเช็กเครื่องหมายจุดออก)
             decoded = base64.b64decode(cleaned_data).decode("utf-8")
-            
-            # พยายามแปลงข้อมูลเป็น JSON เพื่อดึง Email ออกมา
             return json.loads(decoded).get("email")
         except Exception:
-            # ถ้าไม่ใช่ Base64/JSON ให้ส่งก้อนข้อความดิบกลับไป (เผื่อเป็นกรณีส่งค่าเมลดั้งเดิมมา)
             return user_data
             
     return None
+
+# ตรวจสอบสถานะการล็อกอินผ่านโมดูลของ Streamlit
+if not st.user.is_logged_in:
+    st.info("Please log in to Streamlit Cloud to access this app.")
+    # สั่งแสดงปุ่มล็อกอินสีแดงของ Streamlit Cloud บนหน้าเว็บเมื่อเป็น Public App
+    st.login() 
+    st.stop()
 
 # รายชื่อผู้มีสิทธิ์
 authorized_users = ["bkorn2303@gmail.com", "noeynim.nnim@gmail.com"]
 
 current_user = get_current_user()
 
-if not current_user:
-    st.info("Please log in to Streamlit Cloud to access this app.")
-    st.stop()
-
 if current_user not in authorized_users:
-    # คราวนี้ตรงนี้จะโชว์เป็นอีเมลจริงๆ ไม่ใช่รหัสยาวๆ แล้วครับ
     st.error(f"Access Denied: {current_user} is not authorized.")
     st.stop()
 
